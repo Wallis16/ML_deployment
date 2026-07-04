@@ -1,0 +1,122 @@
+smollm-ecs-inference/
+│
+├── app/
+│   ├── main.py              # FastAPI application
+│   ├── model.py             # Model loading logic
+│   ├── schemas.py           # Request/response models
+│   └── metrics.py           # Latency and throughput metrics
+│
+├── tests/
+│   └── test_api.py
+│
+├── scripts/
+│   ├── benchmark.py         # Load testing script
+│   └── healthcheck.sh
+│
+├── docker/
+│   └── Dockerfile
+│
+├── requirements.txt
+├── docker-compose.yml
+├── .env.example
+├── README.md
+└── Makefile
+
+Tech Stack
+
+AI / Inference
+Python 3.11
+Hugging Face Transformers
+PyTorch
+SmolLM2-360M-Instruct
+
+API Layer
+FastAPI
+Uvicorn
+
+GPU Support
+NVIDIA Driver
+CUDA 12.x
+NVIDIA Container Toolkit
+
+Containerization
+Docker
+Docker Compose
+
+Monitoring
+Prometheus Client
+FastAPI Instrumentator
+
+Benchmarking
+Locust
+ApacheBench (optional)
+
+Testing
+Pytest
+
+API Design
+Health Check
+
+GET /health
+
+Response:
+
+{
+  "status": "healthy"
+}
+Text Generation
+POST /generate
+
+Request:
+
+{
+  "prompt": "Explain AWS ECS in one sentence",
+  "max_new_tokens": 100,
+  "temperature": 0.7
+}
+
+Response:
+
+{
+  "response": "AWS ECS is a managed container orchestration service...",
+  "latency_ms": 245
+}
+Docker Strategy
+
+Use an NVIDIA CUDA base image:
+
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+Install:
+
+torch
+transformers
+accelerate
+fastapi
+uvicorn
+
+Run:
+
+docker run --gpus all -p 8000:8000 smollm-api
+Baseline Metrics to Collect
+
+For the article, capture:
+
+Metric	Description
+Model Load Time	Startup time
+First Token Latency	Time to first generated token
+End-to-End Latency	Full response generation
+Tokens/sec	Generation throughput
+GPU Memory Usage	VRAM consumption
+GPU Utilization	% utilization during inference
+Expected Deliverable for Part 1
+
+By the end of Part 1, you should be able to:
+
+curl -X POST http://localhost:8000/generate \
+-H "Content-Type: application/json" \
+-d '{
+  "prompt":"What is AWS ECS?"
+}'
+
+and receive a valid response from SmolLM2-360M-Instruct running inside a GPU-enabled Docker container, with baseline performance metrics recorded for comparison after the AWS deployment.

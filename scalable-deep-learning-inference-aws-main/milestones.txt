@@ -1,0 +1,51 @@
+Part 1 — Local Validation
+
+Goal: Prove the model works before touching AWS.
+
+Run SmolLM2-360M-Instruct locally.
+Build the FastAPI inference service.
+Enable GPU acceleration.
+Containerize with Docker.
+Establish baseline metrics.
+
+Outcome: A working GPU-enabled inference container.
+
+Part 2 — Cloud Deployment on AWS ECS
+
+Goal: Move the validated container to production infrastructure.
+
+Push image to ECR.
+Create ECS cluster with GPU instances.
+Deploy ECS service.
+Configure ALB and networking.
+Enable CloudWatch logging and monitoring.
+
+Outcome: A production-ready inference endpoint on AWS.
+
+Part 3 — Performance Optimization
+
+Goal: Improve efficiency before scaling.
+
+Tune model loading.
+Optimize generation parameters.
+Implement request batching.
+Adjust ECS task resources.
+Measure latency, throughput, and GPU utilization.
+
+Outcome: An efficient single-service deployment with known performance limits.
+
+Part 4 — GPU Auto-Scaling
+
+Goal: Scale dynamically based on demand.
+
+Configure ECS Service Auto Scaling.
+Define scaling policies.
+Scale based on GPU utilization, request rate, or queue depth.
+Perform load testing.
+Analyze cost vs. performance.
+
+Outcome: A resilient, cost-efficient inference platform that automatically adjusts GPU capacity.
+
+This structure follows a realistic engineering workflow:
+
+Local Validation → AWS Deployment → Optimization → Auto-Scaling

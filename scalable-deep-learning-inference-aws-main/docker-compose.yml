@@ -1,0 +1,19 @@
+services:
+  smollm-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: smollm-api:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      MODEL_ID: ${MODEL_ID:-HuggingFaceTB/SmolLM2-360M-Instruct}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

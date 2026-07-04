@@ -1,0 +1,1 @@
+"""SmolLM ECS inference service."""

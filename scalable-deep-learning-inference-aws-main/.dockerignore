@@ -1,0 +1,16 @@
+.git
+.pytest_cache
+.venv
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.env.*
+!.env.example
+uv.lock
+tests
+milestones.txt
+milestone_one.txt
+aws_commands.txt
+README.md

@@ -1,0 +1,1 @@
+The olist database contains Brazilian e-commerce order data from the Olist marketplace, covering customers, sellers, products, orders, payments, and reviews. Use it to answer questions about sales, orders, shipping/delivery, payments, customers, sellers, or product categories.

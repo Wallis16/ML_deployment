@@ -1,0 +1,94 @@
+📚 PostgreSQL Database Schema Reference — movie_lens
+
+SELECT * FROM movies;
+
+Database: movie_lens (connect directly to this database; all tables live in
+the "public" schema, so no schema prefix is needed).
+
+This database is the MovieLens dataset: movies, the ratings and free-text
+tags users applied to them, and cross-references to IMDb/TMDb. It has 4
+tables: movies, links, ratings, tags.
+
+🎬 1️⃣ Table: movies
+
+One row per movie. The root table — everything else hangs off movie_id.
+
+Column      Type        Description
+movie_id    integer(PK) Unique identifier for the movie
+title       text        Movie title, release year embedded in parentheses, e.g. "Toy Story (1995)"
+genres      text        Pipe-separated genre list, e.g. "Adventure|Animation|Comedy" — use string_to_array(genres, '|') or LIKE '%Comedy%' to filter
+
+🔗 Referenced by: links, ratings, tags
+Row count: 87,585
+
+🔗 2️⃣ Table: links
+
+Cross-reference from a movie to its IMDb/TMDb identifiers. One row per movie.
+
+Column      Type                Description
+movie_id    integer(PK,FK)      References movies.movie_id
+imdb_id     text                Zero-padded IMDb numeric id (e.g. "0114709"); the full IMDb URL is https://www.imdb.com/title/tt<imdb_id>/
+tmdb_id     integer, nullable   TheMovieDB id; https://www.themoviedb.org/movie/<tmdb_id> — a small number of rows have this NULL
+
+🔗 References: movies (movie_id)
+Row count: 87,585
+
+⭐ 3️⃣ Table: ratings
+
+One row per (user, movie) rating. This is the largest table by far — avoid
+SELECT * on it without a LIMIT or filter.
+
+Column           Type                    Description
+user_id          integer (PK part)       Anonymous user identifier (no separate users table exists in this dataset)
+movie_id         integer (PK part, FK)   References movies.movie_id
+rating           numeric(2,1)            Star rating, 0.5–5.0 in 0.5 increments
+rated_at_epoch   bigint                  Unix epoch seconds; convert with to_timestamp(rated_at_epoch)
+
+Primary key: (user_id, movie_id) — a user rates a given movie at most once.
+🔗 References: movies (movie_id)
+Row count: 32,000,204
+
+🏷️ 4️⃣ Table: tags
+
+One row per free-text tag a user applied to a movie. A user can tag the same
+movie more than once, so there's no natural unique key — a surrogate id is
+used instead.
+
+Column            Type              Description
+id                bigint(PK)        Surrogate key
+user_id           integer           Anonymous user identifier (same id space as ratings.user_id, but not FK-enforced)
+movie_id          integer(FK)       References movies.movie_id
+tag               text, nullable    Free-text tag, e.g. "misogyny", "Kevin Kline"
+tagged_at_epoch   bigint            Unix epoch seconds; convert with to_timestamp(tagged_at_epoch)
+
+🔗 References: movies (movie_id)
+Row count: 2,000,072
+
+🗺️ Relationships
+
+movies (1) ──< links      (1:1, via movie_id)
+movies (1) ──< ratings    (1:N, via movie_id)
+movies (1) ──< tags       (1:N, via movie_id)
+
+💡 Example queries
+
+-- Average rating and rating count per movie, highest-rated first
+SELECT m.title, round(avg(r.rating), 2) AS avg_rating, count(*) AS num_ratings
+FROM movies m
+JOIN ratings r ON r.movie_id = m.movie_id
+GROUP BY m.movie_id, m.title
+HAVING count(*) >= 100
+ORDER BY avg_rating DESC
+LIMIT 20;
+
+-- A user's tags alongside their rating for the same movie
+SELECT m.title, t.tag, r.rating
+FROM tags t
+JOIN movies m ON m.movie_id = t.movie_id
+LEFT JOIN ratings r ON r.movie_id = t.movie_id AND r.user_id = t.user_id
+WHERE t.user_id = 22;
+
+-- Movie's IMDb link
+SELECT m.title, 'https://www.imdb.com/title/tt' || l.imdb_id AS imdb_url
+FROM movies m JOIN links l ON l.movie_id = m.movie_id
+WHERE m.movie_id = 1;

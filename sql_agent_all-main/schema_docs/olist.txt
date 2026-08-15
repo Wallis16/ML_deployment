@@ -1,0 +1,195 @@
+📚 PostgreSQL Database Schema Reference — olist
+
+SELECT * FROM orders;
+
+Database: olist (connect directly to this database; all tables live in the
+"public" schema, so no schema prefix is needed).
+
+This database is the Olist Brazilian e-commerce dataset: customers placing
+orders, the items/sellers/products within each order, payments, and review
+scores. It has 9 tables: customers, sellers, geolocation, products,
+product_category_name_translation, orders, order_items, order_payments,
+order_reviews.
+
+👤 1️⃣ Table: customers
+
+One row per customer account. Note: customer_id is unique per *order*
+(a repeat shopper gets a new customer_id each time) — use customer_unique_id
+to identify the same real-world person across orders.
+
+Column                      Type            Description
+customer_id                 text(PK)        Order-scoped customer identifier; FK target for orders.customer_id
+customer_unique_id          text            Stable identifier for the actual person across multiple orders
+customer_zip_code_prefix    text, nullable  First 5 digits of the customer's zip code; join key into geolocation.geolocation_zip_code_prefix
+customer_city               text, nullable  Customer's city
+customer_state              text, nullable  Customer's state, 2-letter code (e.g. "SP")
+
+🔗 Referenced by: orders
+Row count: 99,441
+
+🚚 2️⃣ Table: sellers
+
+One row per seller.
+
+Column                    Type            Description
+seller_id                 text(PK)        Unique seller identifier
+seller_zip_code_prefix    text, nullable  First 5 digits of the seller's zip code; join key into geolocation.geolocation_zip_code_prefix
+seller_city               text, nullable  Seller's city
+seller_state               text, nullable  Seller's state, 2-letter code
+
+🔗 Referenced by: order_items
+Row count: 3,095
+
+🗺️ 3️⃣ Table: geolocation
+
+Zip-code-prefix → lat/lng lookup. Many rows share the same zip prefix
+(multiple lat/lng samples per prefix) — this is NOT one row per zip, so
+aggregate (e.g. avg(lat), avg(lng)) when joining to get one location per
+prefix. Not foreign-keyed to customers/sellers (join manually on the zip
+prefix text).
+
+Column                          Type                    Description
+id                              bigint(PK)              Surrogate key
+geolocation_zip_code_prefix     text                    First 5 digits of a zip code
+geolocation_lat                 double precision, nullable   Latitude
+geolocation_lng                 double precision, nullable   Longitude
+geolocation_city                text, nullable          City name
+geolocation_state               text, nullable          State, 2-letter code
+
+Row count: 1,000,163
+
+📦 4️⃣ Table: products
+
+One row per product listed for sale.
+
+Column                        Type              Description
+product_id                    text(PK)          Unique product identifier
+product_category_name         text, nullable    Category, in Portuguese; join to product_category_name_translation.product_category_name for the English name — NOT foreign-key-enforced, a few categories here have no translation row
+product_name_length           integer, nullable Character length of the product name
+product_description_length    integer, nullable Character length of the product description
+product_photos_qty            integer, nullable Number of photos
+product_weight_g               integer, nullable Weight in grams
+product_length_cm              integer, nullable Length in cm
+product_height_cm              integer, nullable Height in cm
+product_width_cm               integer, nullable Width in cm
+
+🔗 Referenced by: order_items
+Row count: 32,951
+
+🌐 5️⃣ Table: product_category_name_translation
+
+Portuguese → English category name lookup.
+
+Column                            Type        Description
+product_category_name             text(PK)    Category name in Portuguese, matches products.product_category_name
+product_category_name_english     text        Category name in English
+
+Row count: 71 (not exhaustive — see products note above)
+
+🧾 6️⃣ Table: orders
+
+One row per order. The hub table for the order-level facts (items, payments,
+reviews).
+
+Column                           Type              Description
+order_id                         text(PK)          Unique order identifier
+customer_id                      text(FK)          References customers.customer_id
+order_status                     text              One of: created, approved, invoiced, processing, shipped, delivered, unavailable, canceled
+order_purchase_timestamp         timestamp, nullable  When the order was placed
+order_approved_at                timestamp, nullable  When payment was approved
+order_delivered_carrier_date     timestamp, nullable  When handed to the logistics carrier
+order_delivered_customer_date    timestamp, nullable  When the customer received it (NULL if not yet/never delivered)
+order_estimated_delivery_date    timestamp, nullable  Estimated delivery date shown to the customer at purchase time
+
+🔗 References: customers (customer_id)
+🔗 Referenced by: order_items, order_payments, order_reviews
+Row count: 99,441
+
+🛒 7️⃣ Table: order_items
+
+One row per line item within an order (an order can have multiple items,
+even multiple units of the same product as separate rows).
+
+Column                  Type                Description
+order_id                text(PK part, FK)   References orders.order_id
+order_item_id           integer(PK part)    1-based sequence number of the item within the order
+product_id              text(FK)            References products.product_id
+seller_id               text(FK)            References sellers.seller_id
+shipping_limit_date     timestamp, nullable Seller's shipping deadline for this item
+price                   numeric(10,2), nullable  Item price (excludes freight)
+freight_value           numeric(10,2), nullable  Freight/shipping cost for this item
+
+Primary key: (order_id, order_item_id)
+🔗 References: orders (order_id), products (product_id), sellers (seller_id)
+Row count: 112,650
+
+💳 8️⃣ Table: order_payments
+
+One row per payment installment/method applied to an order (an order can be
+split across multiple payment rows, e.g. voucher + credit card).
+
+Column                   Type                Description
+order_id                 text(PK part, FK)   References orders.order_id
+payment_sequential       integer(PK part)    1-based sequence number when multiple payment methods are used on one order
+payment_type             text, nullable      One of: credit_card, boleto, voucher, debit_card, not_defined
+payment_installments     integer, nullable   Number of installments the payment was split into
+payment_value            numeric(10,2), nullable  Amount for this payment row
+
+Primary key: (order_id, payment_sequential)
+🔗 References: orders (order_id)
+Row count: 103,886
+
+⭐ 9️⃣ Table: order_reviews
+
+One row per review left for an order. Uses a surrogate primary key because
+review_id is not guaranteed unique in the source data.
+
+Column                       Type                Description
+id                           bigint(PK)          Surrogate key
+review_id                    text                Review identifier from the source data (not unique — do not treat as a key)
+order_id                     text(FK)            References orders.order_id
+review_score                 integer, nullable   1 (worst) to 5 (best)
+review_comment_title         text, nullable      Optional short title written by the customer
+review_comment_message       text, nullable      Optional free-text review body
+review_creation_date         timestamp, nullable When the review request was sent
+review_answer_timestamp      timestamp, nullable When the customer submitted the review
+
+🔗 References: orders (order_id)
+Row count: 99,224
+
+🗺️ Relationships
+
+customers (1) ──< orders          (1:N, via customer_id)
+orders    (1) ──< order_items     (1:N, via order_id)
+orders    (1) ──< order_payments  (1:N, via order_id)
+orders    (1) ──< order_reviews   (1:N, via order_id)
+products  (1) ──< order_items     (1:N, via product_id)
+sellers   (1) ──< order_items     (1:N, via seller_id)
+geolocation and product_category_name_translation join in via zip prefix /
+category name text match, not enforced foreign keys.
+
+💡 Example queries
+
+-- Revenue and item count per order, with customer state
+SELECT o.order_id, c.customer_state, count(*) AS num_items,
+       sum(oi.price + oi.freight_value) AS order_total
+FROM orders o
+JOIN customers c ON c.customer_id = o.customer_id
+JOIN order_items oi ON oi.order_id = o.order_id
+GROUP BY o.order_id, c.customer_state;
+
+-- Average review score by product category (English name)
+SELECT t.product_category_name_english, round(avg(r.review_score), 2) AS avg_score, count(*) AS num_reviews
+FROM order_reviews r
+JOIN orders o ON o.order_id = r.order_id
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN product_category_name_translation t ON t.product_category_name = p.product_category_name
+GROUP BY t.product_category_name_english
+ORDER BY avg_score DESC;
+
+-- Orders that were never delivered
+SELECT order_id, order_status, order_purchase_timestamp
+FROM orders
+WHERE order_delivered_customer_date IS NULL
+  AND order_status NOT IN ('created', 'approved', 'processing', 'invoiced', 'shipped');

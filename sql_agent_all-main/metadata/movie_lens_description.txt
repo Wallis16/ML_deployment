@@ -1,0 +1,1 @@
+The movie_lens database contains movie metadata, user ratings, and free-text tags from the MovieLens dataset. Use it to answer questions about films, genres, IMDb/TMDb identifiers, how users rated movies, or what tags users applied to them.

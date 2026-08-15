@@ -1,0 +1,16 @@
+.env
+*.env
+
+__pycache__/
+*.pyc
+
+agent/output/
+locust_test/results/
+.pytest_cache/
+
+.venv/
+
+.claude
+
+# Source CSVs (~1GB) — reproducible via docker/load_data.sh, not meant for git
+raw_data/

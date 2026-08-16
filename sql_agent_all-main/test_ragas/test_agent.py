@@ -1,4 +1,4 @@
-"""RAGAS-based evaluation of the SQL agent, testing three separate things:
+"""RAGAS-based evaluation of the SQL agent, testing four separate things:
 
 1. test_rag_picks_the_right_database — the RAG step in isolation
    (agent/embeddings.py: local sentence-transformer + pgvector nearest-
@@ -10,9 +10,19 @@
    tool call (tool name = database queried) and scored with RAGAS's
    ToolCallAccuracy.
 
-3. test_final_report_is_correct — is the agent's final natural-language
+3. test_agent_calls_the_expected_tools — did the agent actually call its
+   three real tools (agent/tools.py: get_schema, run_sql, create_plot) in
+   the expected order? Uses the `tool_calls` trace `run_agent` returns and
+   scores it with RAGAS's ToolCallAccuracy against each case's
+   `expected_tools`. This is what catches e.g. the model skipping
+   get_schema and guessing at column names, or not charting a question that
+   explicitly asks for a chart.
+
+4. test_final_report_is_correct — is the agent's final natural-language
    report factually correct, scored against a short reference answer with
-   RAGAS's AnswerCorrectness (LLM-judged via Groq + local embeddings).
+   RAGAS's AnswerCorrectness (LLM-judged via Groq + local embeddings). This
+   is the read on whether run_sql's output was actually right, since a wrong
+   query can still "run".
 
 Run with:
     pytest test_ragas/ -v -s
@@ -58,9 +68,7 @@ def agent_results(agent_graph):
     the same query."""
     results = {}
     for case in TEST_CASES:
-        results[case.question] = agent_graph.invoke(
-            {"question": case.question, "attempt": 0, "max_attempts": 3}
-        )
+        results[case.question] = agent_graph.invoke({"question": case.question, "max_attempts": 3})
     return results
 
 
@@ -134,7 +142,39 @@ def test_agent_calls_the_right_database_tool(case, agent_results, tool_call_accu
 
 
 # ---------------------------------------------------------------------------
-# 3. Is the agent's final report correct?
+# 3. Does the agent call get_schema/run_sql/create_plot as expected?
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("case", TEST_CASES, ids=lambda c: c.question)
+def test_agent_calls_the_expected_tools(case, agent_results, tool_call_accuracy):
+    result = agent_results[case.question]
+
+    # run_sql is allowed to self-correct and retry (e.g. it flagged its own
+    # result as suspicious and re-ran a fixed query) — that's the retry loop
+    # working as intended, not a wrong tool choice. ToolCallAccuracy scores
+    # exact sequence equality, so dedupe by first occurrence: this test cares
+    # which tools were used and in what order, not how many attempts it took.
+    called = list(dict.fromkeys(call["name"] for call in result["tool_calls"]))
+
+    sample = MultiTurnSample(
+        user_input=[
+            HumanMessage(content=case.question),
+            AIMessage(content="", tool_calls=[ToolCall(name=name, args={}) for name in called]),
+        ],
+        reference_tool_calls=[ToolCall(name=name, args={}) for name in case.expected_tools],
+    )
+    score = tool_call_accuracy.multi_turn_score(sample)
+
+    assert score >= TOOL_CALL_THRESHOLD, (
+        f"tool_call_accuracy={score:.2f} for {case.question!r}: "
+        f"called {called} (raw: {[c['name'] for c in result['tool_calls']]}), "
+        f"expected {list(case.expected_tools)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. Is the agent's final report correct?
 # ---------------------------------------------------------------------------
 
 

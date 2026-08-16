@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from agent.graph import build_graph
-from agent.nodes import OUTPUT_DIR
+from agent.tools import OUTPUT_DIR
 
 logger = logging.getLogger("sql_agent_api")
 
@@ -66,13 +66,7 @@ def health() -> dict:
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest) -> QueryResponse:
     try:
-        result = _graph.invoke(
-            {
-                "question": request.question,
-                "attempt": 0,
-                "max_attempts": request.max_attempts,
-            }
-        )
+        result = _graph.invoke({"question": request.question, "max_attempts": request.max_attempts})
     except Exception as exc:
         logger.exception("Unhandled error running the agent for question: %r", request.question)
         raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -10,13 +10,11 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 def main() -> None:
     parser = argparse.ArgumentParser(description="SQL agent over the movie_lens and olist databases")
     parser.add_argument("question", help="A natural-language question to answer with SQL")
-    parser.add_argument("--max-attempts", type=int, default=3, help="Max query-generation retries")
+    parser.add_argument("--max-attempts", type=int, default=3, help="Max run_sql retries")
     args = parser.parse_args()
 
     app = build_graph()
-    result = app.invoke(
-        {"question": args.question, "attempt": 0, "max_attempts": args.max_attempts}
-    )
+    result = app.invoke({"question": args.question, "max_attempts": args.max_attempts})
 
     print(f"\nDatabase: {result.get('database')}")
     print(f"SQL:\n{result.get('query')}\n")
